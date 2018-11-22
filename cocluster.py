@@ -1,9 +1,8 @@
 import csv
 import string
 import numpy as np
-import scipy
-# import sklearn
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.cluster import SpectralCoclustering
 
 cc = []
 diagnoses = []
@@ -15,8 +14,7 @@ with open('Test Data.csv', 'r') as csv_file:
     for row in reader:
         cc.append(row[0])           # append each chief complaint to a list
         diagnoses.append(row[3])    # append each diagnosis to a list
-    
-#csv_file.close()
+
 
 ''' Convert the complaints and diagnoses to lower case, change abbreviations, etc. '''
 for i in range(len(cc)):
@@ -40,9 +38,9 @@ vectorizer = CountVectorizer(analyzer="word", ngram_range=(1, 2))
 dense = vectorizer.fit_transform(cc)
 sparse = dense.toarray()        # the sparse matrix where documents are rows, n-grams are columns
 
-"""print(vectorizer.get_feature_names())
-print()
-print(sparse)"""
+#print(vectorizer.get_feature_names())
+#print()
+#print(sparse)
 
 
 ''' Figure out the rows that the diagnoses are in '''
@@ -66,37 +64,40 @@ for diagnosis in diagnoses:
     
     i += 1
 
-"""print()
-print(diag_dict)"""
+#print()
+#print(diag_dict)
 
-np_sums = []        # list of 1D arrays, each index is a summed row of the sparse matrix
 
 ''' Create the cocluster input matrix '''
-j = 0
+np_sums = []        # list of 1D arrays, each index is a summed row of the sparse matrix
+
 for key in diag_dict:
-    # get the value which is a list of all the rows that the diagnosis is in
-    # use the list elements to find the corresponding rows in the sparse matrix
-    # add those rows of the sparse matrix together (by column) using numpy
-    # put the new numpy array in the cocluster input matrix
+    indices = diag_dict[key]        # the list of row indices from the sparse matrix that point to this diagnosis
+    partial = np.zeros( ( len(sparse[0]) ), dtype=np.int )        # initialize partial solution to 0's of the necessary array length
 
-    indices = diag_dict[key]        # the rows that a diagnosis corresponds to
+    # print("For key: ", key)
+
+    for i in indices:
+        to_add = np.array(sparse[i])        # store the next row to add from the sparse matrix for this diagnosis
+        stacked_arrays = np.stack((partial, to_add))        # stack the next row with the partial solution for the sum() input
+        partial = np.sum(stacked_arrays, axis=0)       # sum the next row to add with the partial solution
+
+        '''print("Row number to add: %d" % i)
+        print("Array to add:")
+        print(to_add)
+        print()
+        print("Stacked arrays:")
+        print(stacked_arrays)
+        print()
+        print("Test sum:")
+        print(partial)
+        print()'''
     
-    print("Indices: ", indices)
-    to_add = np.take(sparse, indices)       # 2D array that represents only the rows needed to be added for this diagnosis
-    summed_array = np.sum(to_add, axis=0)   # 1D array with the sum of the rows for this diagnosis
+    np_sums.append(partial)         # append the full solution to the list of summed rows
 
-    print("To add: ", to_add)
-    print("Summed array: ", summed_array)
 
-    if j == 0:
-        np_sums = summed_array              # initialize the shape of the input matrix
-    else:
-        concat1 = np.array([np_sums])
-        concat2 = np.array([summed_array])
-        np_sums = np.concatenate((concat1, concat2), axis=0)       # concatenate with a new summed row from the sparse matrix
-
-    j += 1
-
-print(np_sums)
-"""for i in rows_to_add:
-arrays = sparse[i]"""
+''' Perform the coclustering '''
+x = np.array(np_sums)
+# print(x)
+clustering = SpectralCoclustering(n_clusters=4, random_state=0).fit(x)
+print(clustering)
