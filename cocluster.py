@@ -70,9 +70,10 @@ for diagnosis in diagnoses:
 
 ''' Create the cocluster input matrix '''
 np_sums = []        # list of 1D arrays, each index is a summed row of the sparse matrix
+matrix_diags = []   # list of diags in the matrix in the order that they are added
 
-for key in diag_dict:
-    indices = diag_dict[key]        # the list of row indices from the sparse matrix that point to this diagnosis
+for diag in diag_dict:
+    indices = diag_dict[diag]        # the list of row indices from the sparse matrix that point to this diagnosis
     partial = np.zeros( ( len(sparse[0]) ), dtype=np.int )        # initialize partial solution to 0's of the necessary array length
 
     # print("For key: ", key)
@@ -94,10 +95,23 @@ for key in diag_dict:
         print()'''
     
     np_sums.append(partial)         # append the full solution to the list of summed rows
+    matrix_diags.append(diag)
 
 
 ''' Perform the coclustering '''
 x = np.array(np_sums)
 # print(x)
-clustering = SpectralCoclustering(n_clusters=4, random_state=0).fit(x)
-print(clustering)
+n_clusters = 4
+clustering = SpectralCoclustering(n_clusters=n_clusters, random_state=0).fit(x)
+
+for i in range(n_clusters):
+    row_nums, col_nums = clustering.get_indices(i)
+    row_words = [matrix_diags[num] for num in row_nums]
+    col_words = [vectorizer.get_feature_names()[num] for num in col_nums]
+
+    print("Cluster: ", i)
+    print("===========")
+    print("Diagnoses: ", row_words)
+    print()
+    print("n-grams: ", col_words)
+    print()
